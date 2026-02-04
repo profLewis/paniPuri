@@ -284,8 +284,10 @@ This stores files in `samples/` (excluded from git via `.gitignore`).
 
 ## Credits
 
+- Concept, design, and testing by [Philip Lewis](https://github.com/profLewis)
 - Steel pan samples from [urbanPan](https://github.com/urbansmash/urbanPan) by urbansmash
 - Built as a companion to the [deepPan](https://github.com/plewis/deepPan) 3D-printable steel pan project
+- Code generated with [Claude Code](https://claude.ai/claude-code) (Anthropic)
 
 ## License
 
