@@ -1,16 +1,18 @@
 # PaniPuri
 
-A sample-based steel pan MIDI instrument for Python. Downloads real multi-velocity recordings of a Double Seconds steel pan from the [urbanPan](https://github.com/urbansmash/urbanPan) project and plays them back with MIDI mapping, velocity-sensitive layering, and 16-voice polyphony.
+A sample-based steel pan MIDI instrument for Python. Uses real recordings of a Double Seconds steel pan from the [urbanPan](https://github.com/urbansmash/urbanPan) project, with automatic sound preparation, octave pitch-shifting for missing notes, and a calibrated synthesis fallback.
 
 ## Features
 
 - **Real steel pan samples** - recorded WAV files from a Double Seconds pan, not synthesized
+- **Prepared sounds** - `sounds/` directory with one WAV per note, ready to play (included in repo)
+- **Automatic preparation** - `prepare_sounds.py` sources sounds from urbanPan downloads, octave pitch-shifting, or synthesis
 - **Calibrated synthesizer** - `--synth` mode generates tones matched to the real samples, no downloads needed
-- **Velocity-sensitive** - 4 dynamic layers (pp, mp, f, ff) selected automatically by MIDI velocity
-- **Full chromatic range** - F3 to C6 (MIDI 53-84), 32 notes
+- **Interactive web player** - `player.html` with SVG pan layout, hover-to-play, synth/samples toggle
+- **Tenor pan range** - C4 to E6 (29 notes across 3 rings: 4ths, 5ths, 6ths)
 - **16-voice polyphony** - play chords and fast runs without note stealing
-- **Auto-download** - samples are fetched from GitHub on first run
 - **Multiple interfaces**:
+  - Interactive web player (`player.html`) with SVG pan visualization
   - Interactive pygame keyboard with visual piano display
   - MIDI file playback
   - MIDI controller input (any USB/Bluetooth MIDI keyboard)
@@ -33,12 +35,14 @@ pip install python-rtmidi
 # Interactive keyboard mode (default)
 python panipuri.py
 
-# Samples download automatically on first run.
-# To download manually:
-python panipuri.py --download
+# Or open the web-based player directly
+open player.html
+
+# Prepare/regenerate sound files
+python prepare_sounds.py
 ```
 
-On first run, PaniPuri downloads ~30 MB of WAV samples from the urbanPan GitHub repository into a `samples/` directory.
+The `sounds/` directory contains prepared WAV files for all 29 tenor pan notes and is included in the repo. If missing, PaniPuri auto-generates them via `prepare_sounds.py`.
 
 ## Usage
 
@@ -66,7 +70,7 @@ Opens a pygame window with a visual piano keyboard. Play using your computer key
 python panipuri.py --play mysong.mid
 ```
 
-Any MIDI file will work. Notes outside the F3-C6 range are silently skipped. Velocity values from the MIDI file select the appropriate sample layer.
+Any MIDI file will work. Notes outside the C4-E6 range are silently skipped. Velocity is mapped to volume via a power curve.
 
 ### Create and Play a Demo
 
@@ -114,6 +118,26 @@ G4,B4,D,G,G,G,G,G,F#,G,D,B4
 | `duration=N` | Set default note duration in beats |
 
 A demo song file is included at `songs/in_the_mood.txt`.
+
+### Prepare Sounds
+
+```bash
+# Populate sounds/ with WAVs for all 29 tenor pan notes
+python prepare_sounds.py
+
+# Re-generate all files even if they exist
+python prepare_sounds.py --force
+
+# Show detail for each note
+python prepare_sounds.py --verbose
+```
+
+For each note, `prepare_sounds.py` tries in order:
+1. Already exists in `sounds/`
+2. Copy from local `samples/` directory (urbanPan layer 2)
+3. Download from urbanPan GitHub
+4. Pitch-shift from an octave-below sample (2x playback rate)
+5. Synthesize using calibrated parameters
 
 ### Synthesizer Mode
 
@@ -172,20 +196,24 @@ Listens for note-on/note-off messages from a hardware MIDI controller. Velocity 
 
 ## How It Works
 
-### Sample-Based Approach
+### Sound Pipeline
 
-PaniPuri follows the same approach as [urbanPan](https://github.com/urbansmash/urbanPan): playing back pre-recorded WAV files of a real steel pan rather than synthesizing sounds. This gives authentic timbre that synthesis cannot easily replicate.
+PaniPuri uses a prepared `sounds/` directory containing one WAV file per tenor pan note (29 notes, C4-E6). These are included in the repository for immediate use.
 
-The urbanPan project recorded a Double Seconds steel pan at multiple dynamic levels:
+The `prepare_sounds.py` script generates these files using a cascading fallback:
 
-| Layer | Dynamic | Coverage |
-|-------|---------|----------|
-| 0 | pp (pianissimo) | 10 notes (sparse) |
-| 1 | mp (mezzo-piano) | 32 notes (full) |
-| 2 | f (forte) | 32 notes (full) |
-| 3 | ff (fortissimo) | 4 notes (sparse) |
+1. **urbanPan recordings** (25 notes) - Layer 2 (forte) samples from the [urbanPan](https://github.com/urbansmash/urbanPan) project
+2. **Octave pitch-shifting** (4 notes: C#6, D6, Eb6, E6) - Resampled from octave-below recordings at 2x rate via `scipy.signal.resample`
+3. **Calibrated synthesis** (fallback) - Generated using per-note parameters extracted from the real samples
 
-When a note is triggered, PaniPuri selects the best matching velocity layer. If the exact layer isn't available for that note, it falls back to the nearest available layer.
+### Web Player
+
+`player.html` is a self-contained interactive player with:
+- SVG-based tenor pan layout (outer ring red, central ring blue, inner ring green)
+- Hover-to-play interaction
+- Synth/Samples toggle (defaults to samples mode)
+- Per-note calibrated synthesis via Web Audio API
+- Octave pitch-shifting for notes without direct samples
 
 ### Velocity Curve
 
@@ -193,25 +221,19 @@ MIDI velocity (0-127) maps to volume with a power curve (`v^0.7`) for a more nat
 
 ### Polyphony
 
-Unlike the original urbanPan (single voice), PaniPuri uses round-robin channel allocation across 16 pygame mixer channels, allowing chords, arpeggios, and overlapping notes.
+PaniPuri uses round-robin channel allocation across 16 pygame mixer channels, allowing chords, arpeggios, and overlapping notes.
 
 ## Sample Source
 
-**The WAV samples used by PaniPuri are not included in this repository.** They are downloaded at runtime from a separate GitHub repository:
+The prepared WAV files in `sounds/` are included in this repository. The original multi-velocity recordings come from the [urbanPan](https://github.com/urbansmash/urbanPan) project by [urbansmash](https://github.com/urbansmash).
 
-> **Source repository:** [https://github.com/urbansmash/urbanPan](https://github.com/urbansmash/urbanPan)
->
-> Specifically, from the [`urbanPan/Samples/`](https://github.com/urbansmash/urbanPan/tree/master/urbanPan/Samples) directory of that repo.
+To download the full multi-velocity sample set (78 WAV files, ~30 MB):
 
-The urbanPan repository by [urbansmash](https://github.com/urbansmash) contains recordings of a real Double Seconds steel pan. PaniPuri downloads these files on first run (or via `--download`) and stores them locally in the `samples/` directory, which is excluded from version control via `.gitignore`.
+```bash
+python panipuri.py --download
+```
 
-The download includes:
-
-- **78 WAV files** (~30 MB total) covering 4 velocity layers across the chromatic range F3-C6
-- **`urbanPan.sf2`** - a SoundFont file for use in DAWs
-- **`FN03.wav`, `FS03.wav`** - additional recordings
-
-No samples are bundled with PaniPuri itself. If the urbanPan repository becomes unavailable, you would need to supply your own WAV files in the `samples/` directory following the naming convention `{layer}-{note}{octave}.wav` (e.g., `2-FS4.wav` for F#4 at velocity layer 2).
+This stores files in `samples/` (excluded from git via `.gitignore`).
 
 ## Requirements
 

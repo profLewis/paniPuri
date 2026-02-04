@@ -669,14 +669,14 @@
             'B': 11
         };
 
-        // Map note names to urbanPan filename format (sharps use S)
+        // Map note names to sounds/ filename format (sharps use lowercase 's')
         const NAME_TO_SAMPLE = {
-            'C': 'C', 'C#': 'CS', 'Db': 'CS',
-            'D': 'D', 'D#': 'DS', 'Eb': 'DS',
+            'C': 'C', 'C#': 'Cs', 'Db': 'Cs',
+            'D': 'D', 'D#': 'Ds', 'Eb': 'Ds',
             'E': 'E',
-            'F': 'F', 'F#': 'FS', 'Gb': 'FS',
-            'G': 'G', 'G#': 'GS', 'Ab': 'GS',
-            'A': 'A', 'A#': 'AS', 'Bb': 'AS',
+            'F': 'F', 'F#': 'Fs', 'Gb': 'Fs',
+            'G': 'G', 'G#': 'Gs', 'Ab': 'Gs',
+            'A': 'A', 'A#': 'As', 'Bb': 'As',
             'B': 'B'
         };
 
@@ -778,7 +778,7 @@
         function getSamplePath(name, octave) {
             const sampleName = NAME_TO_SAMPLE[name];
             if (!sampleName) return null;
-            return 'samples/2-' + sampleName + octave + '.wav';
+            return 'sounds/' + sampleName + octave + '.wav';
         }
 
         let loadStats = { direct: 0, shifted: 0, synth: 0 };

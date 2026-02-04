@@ -36,7 +36,9 @@ import json
 # Configuration
 # ---------------------------------------------------------------------------
 
-SAMPLE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "samples")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SAMPLE_DIR = os.path.join(BASE_DIR, "samples")
+SOUNDS_DIR = os.path.join(BASE_DIR, "sounds")
 
 GITHUB_RAW_BASE = (
     "https://raw.githubusercontent.com/urbansmash/urbanPan/master/urbanPan/Samples"
@@ -48,13 +50,15 @@ GITHUB_RAW_BASE = (
 # Range: F3 (MIDI 53) to C6 (MIDI 84)
 
 NOTE_NAMES_SHARP = ["C", "CS", "D", "DS", "E", "F", "FS", "G", "GS", "A", "AS", "B"]
+NOTE_NAMES_SOUNDS = ["C", "Cs", "D", "Ds", "E", "F", "Fs", "G", "Gs", "A", "As", "B"]
 NOTE_NAMES_DISPLAY = [
     "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
 ]
 
-# MIDI note 53 = F3, MIDI note 84 = C6
+# MIDI note range: F3 to E6
+# sounds/ has C4-E6 (29 tenor pan notes), samples/ has F3-C6
 MIDI_LOW = 53   # F3
-MIDI_HIGH = 84  # C6
+MIDI_HIGH = 88  # E6
 
 # Velocity layers available in urbanPan (layer: [notes available])
 # Layer 1 and 2 have full chromatic coverage (F3-C6)
@@ -157,6 +161,29 @@ def ensure_samples():
     return os.path.exists(test_file)
 
 
+def get_sound_filename(midi_note):
+    """Get the sounds/ filename for a MIDI note (e.g., 60 -> 'C4.wav', 66 -> 'Fs4.wav')."""
+    octave = (midi_note // 12) - 1
+    note_idx = midi_note % 12
+    return f"{NOTE_NAMES_SOUNDS[note_idx]}{octave}.wav"
+
+
+def ensure_sounds():
+    """Ensure sounds/ directory is populated, running prepare_sounds.py if needed."""
+    test_file = os.path.join(SOUNDS_DIR, "C4.wav")
+    if os.path.exists(test_file):
+        return True
+
+    print("Prepared sounds not found. Running prepare_sounds to generate sounds/...\n")
+    try:
+        from prepare_sounds import prepare_sounds
+        stats = prepare_sounds()
+        return stats.get("failed", 0) == 0
+    except Exception as e:
+        print(f"Error running prepare_sounds: {e}")
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Sample loading and playback engine
 # ---------------------------------------------------------------------------
@@ -183,29 +210,54 @@ class SteelPanSampler:
         self._next_channel = 0
 
     def load_samples(self):
-        """Load all available WAV samples into memory."""
+        """Load all available WAV samples into memory.
+
+        Tries sounds/ directory first (single-layer prepared sounds),
+        then falls back to multi-layer samples/ directory.
+        """
         pygame = self.pygame
         loaded_count = 0
+        sounds_count = 0
 
-        for layer in [0, 1, 2, 3]:
+        # Try loading from sounds/ first (prepared single-layer sounds)
+        if os.path.isdir(SOUNDS_DIR):
             for midi_note in range(MIDI_LOW, MIDI_HIGH + 1):
-                fname = get_sample_filename(layer, midi_note)
-                fpath = os.path.join(SAMPLE_DIR, fname)
+                fname = get_sound_filename(midi_note)
+                fpath = os.path.join(SOUNDS_DIR, fname)
                 if os.path.exists(fpath):
                     try:
                         sound = pygame.mixer.Sound(fpath)
-                        self.samples[(layer, midi_note)] = sound
-                        loaded_count += 1
+                        # Store as layer 2 (forte) for velocity mapping compatibility
+                        self.samples[(2, midi_note)] = sound
+                        sounds_count += 1
                     except Exception as e:
                         print(f"  Warning: Could not load {fname}: {e}")
 
+        if sounds_count > 0:
+            loaded_count = sounds_count
+            print(f"Loaded {loaded_count} sounds from sounds/")
+        else:
+            # Fall back to multi-layer samples/ directory
+            for layer in [0, 1, 2, 3]:
+                for midi_note in range(MIDI_LOW, MIDI_HIGH + 1):
+                    fname = get_sample_filename(layer, midi_note)
+                    fpath = os.path.join(SAMPLE_DIR, fname)
+                    if os.path.exists(fpath):
+                        try:
+                            sound = pygame.mixer.Sound(fpath)
+                            self.samples[(layer, midi_note)] = sound
+                            loaded_count += 1
+                        except Exception as e:
+                            print(f"  Warning: Could not load {fname}: {e}")
+
+            layer_counts = {}
+            for (layer, _) in self.samples:
+                layer_counts[layer] = layer_counts.get(layer, 0) + 1
+            print(f"Loaded {loaded_count} samples across {len(layer_counts)} velocity layers")
+            for layer in sorted(layer_counts):
+                print(f"  Layer {layer}: {layer_counts[layer]} notes")
+
         self.loaded = True
-        layer_counts = {}
-        for (layer, _) in self.samples:
-            layer_counts[layer] = layer_counts.get(layer, 0) + 1
-        print(f"Loaded {loaded_count} samples across {len(layer_counts)} velocity layers")
-        for layer in sorted(layer_counts):
-            print(f"  Layer {layer}: {layer_counts[layer]} notes")
 
     def _velocity_to_layer(self, velocity):
         """Map MIDI velocity (0-127) to the best available sample layer."""
@@ -961,10 +1013,12 @@ def main():
         sampler = SynthSteelPan(max_polyphony=args.polyphony)
         sampler.load_samples()
     else:
-        # Sample mode: ensure samples are available
-        if not ensure_samples():
-            print("Error: Could not download samples. Check your internet connection.")
-            sys.exit(1)
+        # Sample mode: ensure sounds are available (prepared WAVs in sounds/)
+        if not ensure_sounds():
+            print("Warning: Could not prepare sounds. Trying raw samples...")
+            if not ensure_samples():
+                print("Error: No sounds or samples available. Check your internet connection.")
+                sys.exit(1)
 
         import pygame
         pygame.init()
