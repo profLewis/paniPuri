@@ -1096,6 +1096,27 @@
         // next note trigger.
         // -----------------------------------------------------------------
 
+        /** Create a short buffer of filtered noise for mallet strike transient */
+        function createNoiseBuffer(duration) {
+            const len = Math.floor(audioCtx.sampleRate * duration);
+            const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < len; i++) {
+                data[i] = (Math.random() * 2 - 1);
+            }
+            return buf;
+        }
+
+        /** Create a tanh waveshaper curve for soft limiting */
+        function createSoftLimiterCurve(samples, drive) {
+            const curve = new Float32Array(samples);
+            for (let i = 0; i < samples; i++) {
+                const x = (i * 2) / samples - 1;
+                curve[i] = Math.tanh(x * drive) / Math.tanh(drive);
+            }
+            return curve;
+        }
+
         /** Synthesize and play a note using calibrated additive synthesis */
         function playSynthNote(name, octave) {
             initAudio();
@@ -1104,7 +1125,6 @@
             // Clean up finished synth notes
             activeNodes = activeNodes.filter(nodes => {
                 try {
-                    // Check if all oscillators have ended by checking the scheduled stop time
                     return nodes.endTime > audioCtx.currentTime;
                 } catch(e) { return false; }
             });
@@ -1116,7 +1136,7 @@
                     oldest.gain.gain.setValueAtTime(oldest.gain.gain.value, audioCtx.currentTime);
                     oldest.gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.02);
                     setTimeout(() => {
-                        oldest.oscillators.forEach(o => { try { o.stop(); } catch(e) {} });
+                        oldest.sources.forEach(s => { try { s.stop(); } catch(e) {} });
                     }, 50);
                 } catch(e) {}
             }
@@ -1128,13 +1148,14 @@
             const params = getCalParams(midi);
 
             const now = audioCtx.currentTime;
-            const attackTime = params.attack / 1000;
+            const attackTime = Math.max(params.attack / 1000, 0.003);
             const decayTime = params.decay / 1000;
             const sustainLevel = params.sustain / 100;
             const releaseTime = Math.min(params.release / 1000, 2.0);
-            const duration = 2.0;
+            const duration = 2.5;
             const detune = (params.detune || 2);
 
+            // Voice output chain: noteGain -> lowpass -> highShelf -> limiter -> master
             const noteGain = audioCtx.createGain();
             noteGain.gain.setValueAtTime(0, now);
 
@@ -1143,10 +1164,24 @@
             filter.frequency.value = Math.min(params.filter || 6000, audioCtx.sampleRate / 2 - 100);
             filter.Q.value = 0.7;
 
-            noteGain.connect(filter);
-            filter.connect(masterGain);
+            // Brightness: high-shelf filter boosts/cuts above 2kHz
+            const brightness = params.brightness !== undefined ? params.brightness : 99;
+            const brightShelf = audioCtx.createBiquadFilter();
+            brightShelf.type = 'highshelf';
+            brightShelf.frequency.value = 2000;
+            brightShelf.gain.value = (brightness - 50) / 50 * 6; // -6 to +6 dB
 
-            const oscillators = [];
+            // Soft limiter to prevent clipping
+            const limiter = audioCtx.createWaveShaper();
+            limiter.curve = createSoftLimiterCurve(4096, 1.2);
+            limiter.oversample = '2x';
+
+            noteGain.connect(filter);
+            filter.connect(brightShelf);
+            brightShelf.connect(limiter);
+            limiter.connect(masterGain);
+
+            const sources = [];
             const partials = [
                 { ratio: 0.5, ampKey: 'sub_bass', decayMult: 1.0 },
                 { ratio: 1.0 - detune/1000, amp: (params.fundamental || 100) / 100 * 0.1, decayMult: 1.0 },
@@ -1172,28 +1207,68 @@
                 partialGain.gain.setValueAtTime(0, now);
 
                 const partialDecay = decayTime / p.decayMult;
-                const endSustain = sustainLevel * Math.exp(-duration / (partialDecay * 2));
+                const sustainTau = partialDecay * 2;
+                const endSustain = sustainLevel * Math.exp(-duration / sustainTau);
 
+                // Attack: fast ramp (sine-like feel via short time)
                 partialGain.gain.linearRampToValueAtTime(amp, now + attackTime);
-                partialGain.gain.linearRampToValueAtTime(amp * sustainLevel, now + attackTime + partialDecay);
-                partialGain.gain.exponentialRampToValueAtTime(
-                    Math.max(amp * endSustain, 0.0001),
-                    now + duration
+                // Decay to sustain level
+                partialGain.gain.setTargetAtTime(
+                    amp * sustainLevel, now + attackTime, partialDecay / 3
                 );
-                partialGain.gain.linearRampToValueAtTime(0, now + duration + releaseTime);
+                // Gradual sustain decay (exponential)
+                const sustainStart = now + attackTime + partialDecay;
+                partialGain.gain.setTargetAtTime(
+                    Math.max(amp * endSustain, 0.0001), sustainStart, sustainTau
+                );
+                // Release to zero
+                partialGain.gain.setTargetAtTime(0, now + duration, releaseTime / 5);
 
                 osc.connect(partialGain);
                 partialGain.connect(noteGain);
                 osc.start(now);
                 osc.stop(now + duration + releaseTime + 0.1);
-                oscillators.push(osc);
+                sources.push(osc);
             }
 
-            noteGain.gain.linearRampToValueAtTime(0.8, now + attackTime);
-            noteGain.gain.linearRampToValueAtTime(0.8, now + duration);
-            noteGain.gain.linearRampToValueAtTime(0, now + duration + releaseTime);
+            // Attack bloom: 8ms sine burst at fundamental for percussive transient
+            const bloomDur = 0.008;
+            const bloomOsc = audioCtx.createOscillator();
+            bloomOsc.type = 'sine';
+            bloomOsc.frequency.value = freq;
+            const bloomGain = audioCtx.createGain();
+            bloomGain.gain.setValueAtTime(0.12, now);
+            bloomGain.gain.exponentialRampToValueAtTime(0.001, now + bloomDur);
+            bloomGain.gain.setValueAtTime(0, now + bloomDur + 0.001);
+            bloomOsc.connect(bloomGain);
+            bloomGain.connect(noteGain);
+            bloomOsc.start(now);
+            bloomOsc.stop(now + bloomDur + 0.01);
+            sources.push(bloomOsc);
 
-            activeNodes.push({ gain: noteGain, oscillators, endTime: now + duration + releaseTime + 0.1 });
+            // Mallet strike noise: short filtered noise burst
+            const noiseSrc = audioCtx.createBufferSource();
+            noiseSrc.buffer = createNoiseBuffer(0.015);
+            const noiseFilter = audioCtx.createBiquadFilter();
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.value = Math.min(freq * 3, 8000);
+            noiseFilter.Q.value = 1.5;
+            const noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(0.06, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.012);
+            noiseGain.gain.setValueAtTime(0, now + 0.015);
+            noiseSrc.connect(noiseFilter);
+            noiseFilter.connect(noiseGain);
+            noiseGain.connect(noteGain);
+            noiseSrc.start(now);
+            sources.push(noiseSrc);
+
+            // Master envelope
+            noteGain.gain.linearRampToValueAtTime(0.8, now + attackTime);
+            noteGain.gain.setValueAtTime(0.8, now + duration);
+            noteGain.gain.setTargetAtTime(0, now + duration, releaseTime / 5);
+
+            activeNodes.push({ gain: noteGain, sources, endTime: now + duration + releaseTime + 0.1 });
         }
 
         // -----------------------------------------------------------------
