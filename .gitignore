@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.env
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Downloaded samples (fetched at runtime)
+samples/
+
+# Generated MIDI files
+*.mid
+
+# Build
+dist/
+build/
+*.egg-info/
