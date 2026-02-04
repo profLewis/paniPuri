@@ -125,15 +125,23 @@ MIDI velocity (0-127) maps to volume with a power curve (`v^0.7`) for a more nat
 
 Unlike the original urbanPan (single voice), PaniPuri uses round-robin channel allocation across 16 pygame mixer channels, allowing chords, arpeggios, and overlapping notes.
 
-## Samples
+## Sample Source
 
-Samples are downloaded to the `samples/` directory and are not committed to the repository. The download includes:
+**The WAV samples used by PaniPuri are not included in this repository.** They are downloaded at runtime from a separate GitHub repository:
 
-- 78 WAV files (~30 MB total) covering 4 velocity layers
-- `urbanPan.sf2` - SoundFont file for use in DAWs
-- Additional recordings (`FN03.wav`, `FS03.wav`)
+> **Source repository:** [https://github.com/urbansmash/urbanPan](https://github.com/urbansmash/urbanPan)
+>
+> Specifically, from the [`urbanPan/Samples/`](https://github.com/urbansmash/urbanPan/tree/master/urbanPan/Samples) directory of that repo.
 
-All samples are sourced from the [urbanPan](https://github.com/urbansmash/urbanPan) project by urbansmash.
+The urbanPan repository by [urbansmash](https://github.com/urbansmash) contains recordings of a real Double Seconds steel pan. PaniPuri downloads these files on first run (or via `--download`) and stores them locally in the `samples/` directory, which is excluded from version control via `.gitignore`.
+
+The download includes:
+
+- **78 WAV files** (~30 MB total) covering 4 velocity layers across the chromatic range F3-C6
+- **`urbanPan.sf2`** - a SoundFont file for use in DAWs
+- **`FN03.wav`, `FS03.wav`** - additional recordings
+
+No samples are bundled with PaniPuri itself. If the urbanPan repository becomes unavailable, you would need to supply your own WAV files in the `samples/` directory following the naming convention `{layer}-{note}{octave}.wav` (e.g., `2-FS4.wav` for F#4 at velocity layer 2).
 
 ## Requirements
 
