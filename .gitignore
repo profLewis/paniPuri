@@ -28,3 +28,10 @@ samples/
 dist/
 build/
 *.egg-info/
+
+# Xcode
+PaniPuri-iOS/PaniPuri.xcodeproj/xcuserdata/
+PaniPuri-iOS/PaniPuri.xcodeproj/project.xcworkspace/xcuserdata/
+PaniPuri-iOS/PaniPuri.xcodeproj/project.xcworkspace/xcshareddata/
+DerivedData/
+*.xcuserstate

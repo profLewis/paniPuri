@@ -1,6 +1,9 @@
 # PaniPuri
 
-A sample-based steel pan MIDI instrument for Python. Uses real recordings of a Double Seconds steel pan from the [urbanPan](https://github.com/urbansmash/urbanPan) project, with automatic sound preparation, octave pitch-shifting for missing notes, and a calibrated synthesis fallback.
+A sample-based steel pan MIDI instrument with a calibrated synthesizer, interactive web player, native iOS app, and Python backend. Uses real recordings of a Double Seconds steel pan from the [urbanPan](https://github.com/urbansmash/urbanPan) project.
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/profLewis/paniPuri/blob/main/panipuri_colab.ipynb)
+[![Play in Browser](https://img.shields.io/badge/Play-Web%20Player-blue)](https://proflewis.github.io/paniPuri/player.html)
 
 ## Features
 
@@ -9,13 +12,16 @@ A sample-based steel pan MIDI instrument for Python. Uses real recordings of a D
 - **Automatic preparation** - `prepare_sounds.py` sources sounds from urbanPan downloads, octave pitch-shifting, or synthesis
 - **Calibrated synthesizer** - `--synth` mode generates tones matched to the real samples, no downloads needed
 - **Interactive web player** - `player.html` with SVG pan layout, hover-to-play, synth/samples toggle
+- **Native iOS app** - SwiftUI app with multi-touch polyphonic playback
 - **Tenor pan range** - C4 to E6 (29 notes across 3 rings: 4ths, 5ths, 6ths)
 - **16-voice polyphony** - play chords and fast runs without note stealing
 - **Multiple interfaces**:
   - Interactive web player (`player.html`) with SVG pan visualization
+  - Native iOS app with multi-touch support
   - Interactive pygame keyboard with visual piano display
   - MIDI file playback
   - MIDI controller input (any USB/Bluetooth MIDI keyboard)
+  - Google Colab notebook for browser-based synthesis
   - Demo melody generator
 
 ## Quick Start
@@ -166,6 +172,28 @@ Or run the calibration tool directly:
 python calibrate.py --verbose
 ```
 
+### iOS App
+
+The `PaniPuri-iOS/` directory contains a native Swift/SwiftUI app:
+
+```bash
+open PaniPuri-iOS/PaniPuri.xcodeproj
+```
+
+- Multi-touch polyphonic playback (play chords with multiple fingers)
+- Sample and synth modes (same as web player)
+- Canvas-rendered pan layout with ring color coding
+- 16-voice AVAudioEngine polyphony
+- Requires iOS 16+
+
+### Google Colab
+
+Run the synthesizer in your browser without installing anything:
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/profLewis/paniPuri/blob/main/panipuri_colab.ipynb)
+
+The notebook lets you play individual notes, chords, and melodies using the calibrated synthesis engine.
+
 ### MIDI Controller Input
 
 ```bash
@@ -212,8 +240,18 @@ The `prepare_sounds.py` script generates these files using a cascading fallback:
 - SVG-based tenor pan layout (outer ring red, central ring blue, inner ring green)
 - Hover-to-play interaction
 - Synth/Samples toggle (defaults to samples mode)
-- Per-note calibrated synthesis via Web Audio API
+- Per-note calibrated synthesis via Web Audio API (additive synthesis with attack bloom, mallet noise transient, brightness EQ, and soft limiting)
+- 16-voice polyphony
 - Octave pitch-shifting for notes without direct samples
+
+### iOS App
+
+`PaniPuri-iOS/` is a native SwiftUI app with:
+- Canvas-rendered pan layout matching the web player
+- UIKit multi-touch handling for true polyphonic play (multiple fingers simultaneously)
+- AVAudioEngine with 16-voice sample playback (AVAudioPlayerNode pool)
+- Additive synthesis engine (AVAudioSourceNode render callback) with per-note ADSR and Butterworth filtering
+- Synth/Samples toggle and volume control
 
 ### Velocity Curve
 
