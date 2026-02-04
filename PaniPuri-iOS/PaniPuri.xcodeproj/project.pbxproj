@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -31,7 +31,7 @@
 		6368977BFD274BB5FC8CB338 /* SynthPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynthPlayer.swift; sourceTree = "<group>"; };
 		CB3C01C4791B04D8CEC9144D /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngine.swift; sourceTree = "<group>"; };
 		D15E01AC11D033FDF97EBE13 /* SteelPanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SteelPanView.swift; sourceTree = "<group>"; };
-		E061BE371EF90F3E88947E74 /* PaniPuri.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PaniPuri.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E061BE371EF90F3E88947E74 /* PaniPuri.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PaniPuri.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EDF8DE63FE55C4301EDD08A4 /* PaniPuriApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaniPuriApp.swift; sourceTree = "<group>"; };
 		F80715F60E24EB8CD7EFBF5B /* NoteShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteShape.swift; sourceTree = "<group>"; };
 		FDA8C7AD0EACEAE5E32350DA /* PointInPolygon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointInPolygon.swift; sourceTree = "<group>"; };
@@ -132,12 +132,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1500;
-				TargetAttributes = {
-					94C9A7232B78333D34A59DAA = {
-						DevelopmentTeam = "";
-					};
-				};
+				LastUpgradeCheck = 2620;
 			};
 			buildConfigurationList = 5921622B7FD4EF3CE5268BE9 /* Build configuration list for PBXProject "PaniPuri" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -149,7 +144,6 @@
 			);
 			mainGroup = C87D41CDEA8BAEA70DCFF3DC;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -216,9 +210,10 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 4593AW3R2Z;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -232,6 +227,7 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;
@@ -327,9 +323,10 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 4593AW3R2Z;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -350,6 +347,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.9;
