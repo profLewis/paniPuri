@@ -732,8 +732,7 @@
         const sampleCache = {};
         let samplesLoaded = false;
         let samplesLoading = false;
-        let currentSampleAudio = null;
-        let currentBufferSource = null;
+        const MAX_POLYPHONY = 16;
 
         function initAudio() {
             if (audioCtx) return;
@@ -746,9 +745,6 @@
         function updateVolume() {
             volume = document.getElementById('volumeSlider').value / 100 * 0.7;
             if (masterGain) masterGain.gain.value = volume;
-            if (currentSampleAudio) {
-                currentSampleAudio.volume = document.getElementById('volumeSlider').value / 100;
-            }
         }
 
         // ---------------------------------------------------------------
@@ -874,39 +870,46 @@
         // Sample playback
         // ---------------------------------------------------------------
 
+        let activeSampleVoices = []; // track active sample playbacks for polyphony
+
+        function cleanupSampleVoices() {
+            activeSampleVoices = activeSampleVoices.filter(v => !v.ended);
+        }
+
         function playSampleNote(name, octave) {
             const key = name + octave;
             const entry = sampleCache[key];
 
             if (!entry || entry.type === 'synth') {
-                // Fall back to synth for this note
                 playSynthNote(name, octave);
                 return;
             }
 
-            // Stop previous sample
-            if (currentSampleAudio) {
-                currentSampleAudio.pause();
-                currentSampleAudio.currentTime = 0;
-                currentSampleAudio = null;
-            }
-            if (currentBufferSource) {
-                try { currentBufferSource.stop(); } catch(e) {}
-                currentBufferSource = null;
+            cleanupSampleVoices();
+
+            // Steal oldest voice if at polyphony limit
+            if (activeSampleVoices.length >= MAX_POLYPHONY) {
+                const oldest = activeSampleVoices.shift();
+                if (oldest.type === 'audio') {
+                    oldest.audio.pause();
+                    oldest.audio.currentTime = 0;
+                } else if (oldest.source) {
+                    try { oldest.source.stop(); } catch(e) {}
+                }
             }
 
             const vol = document.getElementById('volumeSlider').value / 100;
 
             if (entry.type === 'audio') {
-                // Direct sample playback
-                const audio = entry.audio;
-                currentSampleAudio = audio;
-                audio.currentTime = 0;
+                // Clone the audio element so multiple can play simultaneously
+                const audio = entry.audio.cloneNode();
                 audio.volume = vol;
+                const voice = { type: 'audio', audio, ended: false };
+                audio.onended = () => { voice.ended = true; };
                 audio.play().catch(e => console.warn('Playback failed:', e));
+                activeSampleVoices.push(voice);
 
             } else if (entry.type === 'buffer') {
-                // Pitch-shifted playback via AudioBuffer
                 initAudio();
                 if (audioCtx.state === 'suspended') audioCtx.resume();
 
@@ -919,8 +922,10 @@
                 source.connect(gain);
                 gain.connect(audioCtx.destination);
 
+                const voice = { type: 'buffer', source, ended: false };
+                source.onended = () => { voice.ended = true; };
                 source.start();
-                currentBufferSource = source;
+                activeSampleVoices.push(voice);
             }
         }
 
@@ -931,17 +936,25 @@
             initAudio();
             if (audioCtx.state === 'suspended') audioCtx.resume();
 
-            // Stop active synth notes
-            activeNodes.forEach(nodes => {
+            // Clean up finished synth notes
+            activeNodes = activeNodes.filter(nodes => {
                 try {
-                    nodes.gain.gain.setValueAtTime(nodes.gain.gain.value, audioCtx.currentTime);
-                    nodes.gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.05);
-                    setTimeout(() => {
-                        nodes.oscillators.forEach(o => { try { o.stop(); } catch(e) {} });
-                    }, 100);
-                } catch(e) {}
+                    // Check if all oscillators have ended by checking the scheduled stop time
+                    return nodes.endTime > audioCtx.currentTime;
+                } catch(e) { return false; }
             });
-            activeNodes = [];
+
+            // Steal oldest voice if at polyphony limit
+            if (activeNodes.length >= MAX_POLYPHONY) {
+                const oldest = activeNodes.shift();
+                try {
+                    oldest.gain.gain.setValueAtTime(oldest.gain.gain.value, audioCtx.currentTime);
+                    oldest.gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.02);
+                    setTimeout(() => {
+                        oldest.oscillators.forEach(o => { try { o.stop(); } catch(e) {} });
+                    }, 50);
+                } catch(e) {}
+            }
 
             const midi = noteToMidi(name, octave);
             if (midi === null) return;
@@ -1015,7 +1028,7 @@
             noteGain.gain.linearRampToValueAtTime(0.8, now + duration);
             noteGain.gain.linearRampToValueAtTime(0, now + duration + releaseTime);
 
-            activeNodes.push({ gain: noteGain, oscillators });
+            activeNodes.push({ gain: noteGain, oscillators, endTime: now + duration + releaseTime + 0.1 });
         }
 
         // ---------------------------------------------------------------
