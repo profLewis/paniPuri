@@ -75,6 +75,45 @@ python panipuri.py --create-demo
 
 Generates a short Caribbean-flavored melody as a MIDI file (`demo.mid`) and plays it through the sampler.
 
+### Play a Song File
+
+```bash
+python panipuri.py --song songs/in_the_mood.txt
+```
+
+Song files are simple text with comma-separated note names. Default octave is 5, so `G` means G5. Override per-note with `D6`, `B4`, etc. Example:
+
+```
+# title: In the Mood
+tempo=160
+octave=5
+velocity=90
+duration=0.5
+
+G4,B4,D,G,G,G,G,G,F#,G,D,B4
+G4,B4,D,G,G,G,G,G,F#,G,D,B4
+```
+
+**Song file format:**
+
+| Element | Meaning |
+|---------|---------|
+| `G` | G at default octave (5), default duration |
+| `F#` | F-sharp at default octave |
+| `D6` | D at octave 6 |
+| `Bb4` | B-flat at octave 4 |
+| `G:2` | G at default octave, held for 2 beats |
+| `D6:0.25` | D6, sixteenth note (0.25 beats) |
+| `R` or `-` | Rest for default duration |
+| `R:2` | Rest for 2 beats |
+| `# comment` | Comment line (ignored) |
+| `tempo=N` | Set tempo in BPM |
+| `octave=N` | Set default octave |
+| `velocity=N` | Set MIDI velocity (1-127) |
+| `duration=N` | Set default note duration in beats |
+
+A demo song file is included at `songs/in_the_mood.txt`.
+
 ### MIDI Controller Input
 
 ```bash
@@ -94,6 +133,7 @@ Listens for note-on/note-off messages from a hardware MIDI controller. Velocity 
 | `--download` | Download samples without starting the player |
 | `--force-download` | Re-download all samples |
 | `--play FILE` | Play a MIDI file |
+| `--song FILE` | Play a text song file (see `songs/` for examples) |
 | `--create-demo` | Generate and play a demo melody |
 | `--list-midi` | List MIDI input devices |
 | `--midi-input N` | Listen on MIDI device index N |

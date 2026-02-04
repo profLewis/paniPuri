@@ -10,6 +10,7 @@ Usage:
     python panipuri.py                      # Interactive keyboard mode
     python panipuri.py --download           # Download samples only
     python panipuri.py --play file.mid      # Play a MIDI file
+    python panipuri.py --song songs/in_the_mood.txt  # Play a text song file
     python panipuri.py --create-demo        # Create and play a demo MIDI file
     python panipuri.py --list-midi          # List available MIDI input devices
     python panipuri.py --midi-input 0       # Use MIDI controller (device index)
@@ -392,6 +393,211 @@ def create_demo_midi(output_path=None):
 
 
 # ---------------------------------------------------------------------------
+# Song file parsing and playback
+# ---------------------------------------------------------------------------
+
+# Map note names (with sharps/flats) to semitone offset from C
+NOTE_NAME_TO_SEMITONE = {
+    "C": 0, "C#": 1, "Db": 1,
+    "D": 2, "D#": 3, "Eb": 3,
+    "E": 4, "Fb": 4, "E#": 5,
+    "F": 5, "F#": 6, "Gb": 6,
+    "G": 7, "G#": 8, "Ab": 8,
+    "A": 9, "A#": 10, "Bb": 10,
+    "B": 11, "Cb": 11, "B#": 0,
+}
+
+
+def parse_note_token(token, default_octave=5, default_duration=0.5):
+    """Parse a single note token into (midi_note, duration_beats) or (None, duration) for rests.
+
+    Token format:
+        G          -> G at default octave, default duration
+        F#         -> F# at default octave
+        D6         -> D at octave 6
+        Bb4        -> Bb at octave 4
+        G:2        -> G at default octave, 2 beats
+        D6:0.25    -> D6, quarter-beat (sixteenth note)
+        R          -> rest, default duration
+        R:2        -> rest, 2 beats
+        -          -> rest, default duration
+    """
+    token = token.strip()
+    if not token:
+        return None, 0
+
+    # Split off duration suffix
+    duration = default_duration
+    if ":" in token:
+        token, dur_str = token.rsplit(":", 1)
+        try:
+            duration = float(dur_str)
+        except ValueError:
+            pass
+
+    # Rest
+    if token.upper() in ("R", "-", "REST"):
+        return None, duration
+
+    # Parse note name and optional octave
+    # Note name is letters at the start (plus optional # or b)
+    i = 0
+    # First character must be a letter A-G
+    if not token[0].upper() in "ABCDEFG":
+        raise ValueError(f"Invalid note: '{token}'")
+
+    note_str = token[0].upper()
+    i = 1
+
+    # Check for # or b modifier
+    if i < len(token) and token[i] in "#b":
+        note_str += token[i]
+        i += 1
+
+    # Remaining characters are the octave number
+    octave_str = token[i:]
+    if octave_str:
+        try:
+            octave = int(octave_str)
+        except ValueError:
+            raise ValueError(f"Invalid octave in note: '{token}'")
+    else:
+        octave = default_octave
+
+    if note_str not in NOTE_NAME_TO_SEMITONE:
+        raise ValueError(f"Unknown note name: '{note_str}'")
+
+    semitone = NOTE_NAME_TO_SEMITONE[note_str]
+    midi_note = (octave + 1) * 12 + semitone
+
+    return midi_note, duration
+
+
+def load_song(filepath):
+    """Load a song from a text file.
+
+    File format:
+        # Lines starting with # are comments
+        # Settings (optional, one per line):
+        tempo=160
+        octave=5
+        velocity=90
+        duration=0.5
+
+        # Notes are comma-separated, can span multiple lines:
+        G,B,D,G,G,G,G,G,F#,G,D,B
+        G,B,D,G,G,G,G,G,F#,G,D,B
+
+        # Default octave is 5, override per-note: D6, B4
+        # Duration override per-note with colon: G:2, C:0.25
+        # Rests: R or -
+
+    Returns:
+        dict with keys: tempo, octave, velocity, duration, notes
+        where notes is a list of (midi_note_or_None, duration_beats)
+    """
+    song = {
+        "tempo": 120,
+        "octave": 5,
+        "velocity": 90,
+        "duration": 0.5,
+        "notes": [],
+        "title": os.path.splitext(os.path.basename(filepath))[0],
+    }
+
+    with open(filepath, "r") as f:
+        for line_num, raw_line in enumerate(f, 1):
+            line = raw_line.strip()
+
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
+                # Check for title in comment
+                if line.startswith("# title:"):
+                    song["title"] = line[8:].strip()
+                continue
+
+            # Settings
+            if "=" in line and "," not in line:
+                key, _, val = line.partition("=")
+                key = key.strip().lower()
+                val = val.strip()
+                if key == "tempo":
+                    song["tempo"] = int(val)
+                elif key == "octave":
+                    song["octave"] = int(val)
+                elif key == "velocity":
+                    song["velocity"] = int(val)
+                elif key == "duration":
+                    song["duration"] = float(val)
+                continue
+
+            # Note data - split by commas
+            tokens = line.split(",")
+            for token in tokens:
+                token = token.strip()
+                if not token:
+                    continue
+                try:
+                    midi_note, dur = parse_note_token(
+                        token, song["octave"], song["duration"]
+                    )
+                    song["notes"].append((midi_note, dur))
+                except ValueError as e:
+                    print(f"  Warning line {line_num}: {e}")
+
+    return song
+
+
+def play_song(sampler, song):
+    """Play a parsed song through the sampler."""
+    import time
+
+    tempo = song["tempo"]
+    velocity = song["velocity"]
+    beat_duration = 60.0 / tempo  # seconds per beat
+
+    print(f"\nPlaying: {song['title']}")
+    print(f"  Tempo: {tempo} BPM, Default octave: {song['octave']}, "
+          f"Velocity: {velocity}")
+    print(f"  Notes: {len(song['notes'])}")
+    print("\nPress Ctrl+C to stop.\n")
+
+    notes_played = 0
+    try:
+        for midi_note, dur_beats in song["notes"]:
+            if midi_note is not None:
+                sampler.note_on(midi_note, velocity)
+                name = midi_to_display_name(midi_note)
+                print(f"  {name}", end="  ", flush=True)
+                notes_played += 1
+                if notes_played % 12 == 0:
+                    print()
+            else:
+                print(f"  -", end="  ", flush=True)
+
+            time.sleep(dur_beats * beat_duration)
+
+    except KeyboardInterrupt:
+        sampler.all_notes_off()
+        print("\n\nStopped.")
+        return
+
+    print(f"\n\nFinished: {notes_played} notes played")
+
+
+def play_song_file(sampler, filepath):
+    """Load and play a song from a text file."""
+    if not os.path.exists(filepath):
+        print(f"Error: Song file not found: {filepath}")
+        return
+    song = load_song(filepath)
+    if not song["notes"]:
+        print(f"Error: No notes found in {filepath}")
+        return
+    play_song(sampler, song)
+
+
+# ---------------------------------------------------------------------------
 # MIDI controller input
 # ---------------------------------------------------------------------------
 
@@ -690,6 +896,10 @@ def main():
         help="Play a MIDI file through the steel pan sampler"
     )
     parser.add_argument(
+        "--song", metavar="FILE",
+        help="Play a song from a text file (see songs/ for examples)"
+    )
+    parser.add_argument(
         "--create-demo", action="store_true",
         help="Create a demo MIDI file and play it"
     )
@@ -741,6 +951,11 @@ def main():
             print(f"Error: MIDI file not found: {args.play}")
             sys.exit(1)
         play_midi_file(sampler, args.play)
+        return
+
+    # Song file playback
+    if args.song:
+        play_song_file(sampler, args.song)
         return
 
     # Create and play demo

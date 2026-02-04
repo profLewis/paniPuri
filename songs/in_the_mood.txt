@@ -1,0 +1,49 @@
+# title: In the Mood
+# Composed by Joe Garland, made famous by Glenn Miller (1939)
+# Arranged for steel pan in G major
+#
+# Format: note names, default octave 5
+# Sharps: F#, C#   Flats: Bb, Eb
+# Octave override: D6, B4   Duration override: G:2
+# R = rest
+
+tempo=160
+octave=5
+velocity=90
+duration=0.5
+
+# --- Opening riff (4 times, building) ---
+
+# Riff 1
+G4,B4,D,G,G,G,G,G,F#,G,D,B4
+G4,B4,D,G,G,G,G,G,F#,G,D,B4
+
+# Riff 2 (same pattern, louder in the original)
+G4,B4,D,G,G,G,G,G,F#,G,D,B4
+G4,B4,D,G,G,G,G,G,F#,G,D,B4
+
+# --- Answering phrase ---
+A4,C,E,A,A,A,A,A,G#4,A,E,C
+A4,C,E,A,A,A,A,A,G#4,A,E,C
+
+# --- Back to main riff ---
+G4,B4,D,G,G,G,G,G,F#,G,D,B4
+G4,B4,D,G,G,G,G,G,F#,G:2,R,R
+
+# --- Bridge / middle section ---
+B4:1,D:1,G:1,B:1
+A:1,G:1,F#:1,D:1
+E:1,G:1,A:1,B:1
+A:1,G:1,D:2
+
+B4:1,D:1,G:1,B:1
+A:1,G:1,F#:1,D:1
+E:1,D:1,E:1,F#:1
+G:2,R,R
+
+# --- Final riff ---
+G4,B4,D,G,G,G,G,G,F#,G,D,B4
+G4,B4,D,G,G,G,G,G,F#,G,D,B4
+
+# Ending
+G4,B4,D,G:1,B:1,D6:1,G:2
