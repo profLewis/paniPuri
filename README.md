@@ -5,6 +5,7 @@ A sample-based steel pan MIDI instrument for Python. Downloads real multi-veloci
 ## Features
 
 - **Real steel pan samples** - recorded WAV files from a Double Seconds pan, not synthesized
+- **Calibrated synthesizer** - `--synth` mode generates tones matched to the real samples, no downloads needed
 - **Velocity-sensitive** - 4 dynamic layers (pp, mp, f, ff) selected automatically by MIDI velocity
 - **Full chromatic range** - F3 to C6 (MIDI 53-84), 32 notes
 - **16-voice polyphony** - play chords and fast runs without note stealing
@@ -114,6 +115,33 @@ G4,B4,D,G,G,G,G,G,F#,G,D,B4
 
 A demo song file is included at `songs/in_the_mood.txt`.
 
+### Synthesizer Mode
+
+```bash
+# Play with synthesized sounds (no sample download needed)
+python panipuri.py --synth
+
+# All playback modes work with --synth:
+python panipuri.py --synth --create-demo
+python panipuri.py --synth --song songs/in_the_mood.txt
+python panipuri.py --synth --play file.mid
+```
+
+The synthesizer uses per-note parameters calibrated from the real urbanPan samples. The calibration data (`calibration.json`) is included in the repo, so `--synth` mode works immediately without downloading samples.
+
+To re-run calibration on your own samples:
+
+```bash
+python panipuri.py --download     # Download samples first
+python panipuri.py --calibrate    # Analyze samples, update calibration.json
+```
+
+Or run the calibration tool directly:
+
+```bash
+python calibrate.py --verbose
+```
+
 ### MIDI Controller Input
 
 ```bash
@@ -139,6 +167,8 @@ Listens for note-on/note-off messages from a hardware MIDI controller. Velocity 
 | `--midi-input N` | Listen on MIDI device index N |
 | `--velocity V` | Set default velocity, 1-127 (default: 100) |
 | `--polyphony N` | Max simultaneous notes (default: 16) |
+| `--synth` | Use calibrated synthesizer instead of WAV samples |
+| `--calibrate` | Run calibration on downloaded samples |
 
 ## How It Works
 
@@ -189,6 +219,7 @@ No samples are bundled with PaniPuri itself. If the urbanPan repository becomes 
 - pygame
 - mido
 - numpy
+- scipy (for synthesizer mode)
 - python-rtmidi (optional, for MIDI controller input)
 
 ## Credits

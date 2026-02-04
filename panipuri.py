@@ -14,6 +14,8 @@ Usage:
     python panipuri.py --create-demo        # Create and play a demo MIDI file
     python panipuri.py --list-midi          # List available MIDI input devices
     python panipuri.py --midi-input 0       # Use MIDI controller (device index)
+    python panipuri.py --synth              # Use synthesizer instead of samples
+    python panipuri.py --calibrate          # Run calibration on downloaded samples
 
 Requirements:
     pip install pygame mido numpy
@@ -919,6 +921,14 @@ def main():
         "--polyphony", metavar="N", type=int, default=16,
         help="Maximum simultaneous notes (default: 16)"
     )
+    parser.add_argument(
+        "--synth", action="store_true",
+        help="Use calibrated synthesizer instead of WAV samples"
+    )
+    parser.add_argument(
+        "--calibrate", action="store_true",
+        help="Run calibration on downloaded samples (produces calibration.json)"
+    )
 
     args = parser.parse_args()
 
@@ -932,18 +942,36 @@ def main():
         list_midi_inputs()
         return
 
-    # Ensure samples are available
-    if not ensure_samples():
-        print("Error: Could not download samples. Check your internet connection.")
-        sys.exit(1)
+    # Calibration mode
+    if args.calibrate:
+        if not ensure_samples():
+            print("Error: Could not download samples. Check your internet connection.")
+            sys.exit(1)
+        from calibrate import calibrate
+        calibrate(verbose=True)
+        return
 
-    # Initialize sampler
-    import pygame
-    pygame.init()
-    pygame.mixer.init(frequency=SAMPLE_RATE, size=-16, channels=2, buffer=512)
+    # Synth mode: use synthesizer instead of samples
+    if args.synth:
+        import pygame
+        pygame.init()
+        pygame.mixer.init(frequency=SAMPLE_RATE, size=-16, channels=2, buffer=512)
 
-    sampler = SteelPanSampler(max_polyphony=args.polyphony)
-    sampler.load_samples()
+        from synth import SynthSteelPan
+        sampler = SynthSteelPan(max_polyphony=args.polyphony)
+        sampler.load_samples()
+    else:
+        # Sample mode: ensure samples are available
+        if not ensure_samples():
+            print("Error: Could not download samples. Check your internet connection.")
+            sys.exit(1)
+
+        import pygame
+        pygame.init()
+        pygame.mixer.init(frequency=SAMPLE_RATE, size=-16, channels=2, buffer=512)
+
+        sampler = SteelPanSampler(max_polyphony=args.polyphony)
+        sampler.load_samples()
 
     # MIDI file playback
     if args.play:
